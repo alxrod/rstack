@@ -18,7 +18,7 @@ deleted to minimize owned code and process while preserving engineer intent.
 
 - **Unconstrained initial plans:** Keep initial planning raw and unconstrained
   so the agent can explore unfamiliar areas freely (including a
-  `state-machine-diagram` reflecting performance and timing metrics).
+  `system-diagram` reflecting performance and timing metrics).
 - **State (`state-requirements`):** Expose every requirement (`R1`, `R2`, …)
   with its backing explanation, assumptions, metrics (`MEASURED` vs `ASSUMED`),
   code footprint, stated infeasibilities, risks, dependencies, and (for new

@@ -33,7 +33,7 @@ everything it assumes with concrete backing evidence.
 ## Step 1: State machine diagram (prerequisite)
 
 If a current state machine diagram has not been generated yet for the target,
-invoke **`state-machine-diagram`** first to build and validate one (reflecting
+invoke **`system-diagram`** first to build and validate one (reflecting
 all known or targeted performance and timing metrics directly on the states and
 transitions). If an up-to-date diagram already exists, reuse and reference its
 state IDs below.

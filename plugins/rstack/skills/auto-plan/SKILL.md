@@ -13,8 +13,9 @@ plan-refine-implement loop).
 ## Workflow
 
 1. **Unconstrained initial plan:** Write a raw, unconstrained initial plan for
-   the requested goal, including a `state-machine-diagram` that captures its
-   states, transitions, failure/recovery paths, and performance/timing metrics.
+   the requested goal, including a `system-diagram` (architecture first, then
+   flow diagrams for critical paths) that captures its components, boundaries,
+   transitions, failure/recovery paths, and performance/timing metrics.
    Do not artificially limit creativity during initial planning.
 2. **State requirements:** Invoke `state-requirements` on the plan (including
    `scope-work` since this proposes new work). Record the resulting unified

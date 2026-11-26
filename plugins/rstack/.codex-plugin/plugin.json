@@ -23,7 +23,7 @@
   "interface": {
     "displayName": "rstack",
     "shortDescription": "Requirements-first engineering meta-skills: state, question, and delete requirements for any plan, codebase, status report, or dev cycle.",
-    "longDescription": "rstack organizes agent engineering around a unified requirements model and a hierarchical skill DAG: state-machine-diagram, state-requirements, question-requirements (fresh subagent with deep web OSS research and minimal worktree spikes), delete-requirements, opt-in auto-plan, measure-dev-cycle, scope-work, and status-report.",
+    "longDescription": "rstack organizes agent engineering around a unified requirements model and a hierarchical skill DAG: system-diagram, state-requirements, question-requirements (fresh subagent with deep web OSS research and minimal worktree spikes), delete-requirements, opt-in auto-plan, measure-dev-cycle, scope-work, and status-report.",
     "category": "developer-tools",
     "capabilities": [
       "Deterministic Mermaid stateDiagram-v2 generation and validation with metrics",
