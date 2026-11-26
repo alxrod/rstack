@@ -1,0 +1,1321 @@
+{
+ "title": "rdocs requirements",
+ "subtitle": "After 5 auto-plan rounds",
+ "sections": [
+  {
+   "id": "intent",
+   "name": "Intent",
+   "summary": "The outcomes the product exists for.",
+   "requirements": [
+    {
+     "id": "R1",
+     "text": "WYSIWYG markdown editor + folder tree",
+     "backing": "USER",
+     "states": "\u2014",
+     "category": "intent",
+     "status": "user-specified",
+     "story": "Users write in a WYSIWYG markdown editor and organize docs in folders",
+     "kind": "assumption"
+    },
+    {
+     "id": "R2",
+     "text": "MCP: agents search/read/write/script over all docs",
+     "backing": "USER",
+     "states": "ToolCall, Script",
+     "category": "intent",
+     "status": "user-specified",
+     "story": "Agents can search, read, edit, and script across all your docs",
+     "kind": "assumption"
+    },
+    {
+     "id": "R3",
+     "text": "Cloud storage; .md and .pdf download",
+     "backing": "USER",
+     "states": "Committed, Backed",
+     "category": "intent",
+     "status": "user-specified",
+     "story": "Docs live in the cloud and download as .md or .pdf",
+     "kind": "assumption"
+    },
+    {
+     "id": "R4",
+     "text": "Full git-backed history; one commit per accepted change",
+     "backing": "USER; 40 ms p95 commit, +700 KB/1000 saves MEASURED",
+     "states": "Committed",
+     "category": "intent",
+     "status": "user-specified",
+     "story": "Every change is kept in version history",
+     "kind": "assumption"
+    },
+    {
+     "id": "R5",
+     "text": "Snappy; Rust only where it measurably helps",
+     "backing": "USER (ruling b)",
+     "states": "all",
+     "category": "intent/perf",
+     "status": "user-specified",
+     "story": "Everything feels instant",
+     "kind": "assumption"
+    },
+    {
+     "id": "R6",
+     "text": "Google sign-in",
+     "backing": "USER",
+     "states": "\u2014",
+     "category": "intent",
+     "status": "user-specified",
+     "story": "Users sign in with Google",
+     "kind": "assumption"
+    },
+    {
+     "id": "R7",
+     "text": "MCP OAuth (ChatGPT accepts only OAuth)",
+     "backing": "USER; VALIDATED r2",
+     "states": "OAuth",
+     "category": "intent",
+     "status": "user-specified",
+     "story": "Agents connect through an OAuth sign-in, including from claude.ai and ChatGPT",
+     "kind": "assumption"
+    },
+    {
+     "id": "R8",
+     "text": "Simplest merge: CAS + editor overwrite (every version committed)",
+     "backing": "USER",
+     "states": "Stale",
+     "category": "intent",
+     "status": "user-specified",
+     "story": "A stale agent edit is rejected; your editor's edit wins, and nothing is lost",
+     "kind": "assumption"
+    },
+    {
+     "id": "R9",
+     "text": "Image paste/drag",
+     "backing": "USER",
+     "states": "\u2014",
+     "category": "intent",
+     "status": "user-specified",
+     "story": "Users can paste or drag images into docs",
+     "kind": "assumption"
+    }
+   ]
+  },
+  {
+   "id": "storage",
+   "name": "Storage & history",
+   "summary": "git is the authority; docs/ is a checkout projection.",
+   "requirements": [
+    {
+     "id": "R15'",
+     "text": "Per-account tokio Mutex around Store::apply",
+     "backing": "~100 LOC",
+     "states": "Locked",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Edits to one account are applied one at a time",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 15,
+      "depends_on": [
+       "R35'''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 10,
+        "why": "~100 LOC of types at 20 LOC/min = 5, plus 5 designing a contract every lane builds on."
+       },
+       "build_test": {
+        "min": 3,
+        "why": "One compile-and-test cycle (3 min)."
+       },
+       "verify": {
+        "min": 2,
+        "why": "Read the signatures against their callers in R18, R27, R28."
+       }
+      },
+      "basis": "~100 LOC of types: Store::apply, Mutation, Writer, error enum, per-account Mutex map.",
+      "risk": "Low; it's a contract, but every lane waits on it."
+     }
+    },
+    {
+     "id": "R16'",
+     "text": "Path identity; 422 invalid names; 409 when equal after NFC + case folding; reserved `_assets`",
+     "backing": "~160 LOC; zip collision loss MEASURED r3",
+     "states": "Rejected",
+     "category": "arch",
+     "status": "validated",
+     "story": "Doc names are validated, and names that clash only by case are refused",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 15,
+      "depends_on": [
+       "R15'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 8,
+        "why": "~160 LOC (validator + table tests) at 20 LOC/min."
+       },
+       "build_test": {
+        "min": 6,
+        "why": "Two compile-and-test cycles; Unicode edge cases usually fail once."
+       },
+       "verify": {
+        "min": 1,
+        "why": "Check the NFC/NFD and case pair against the APFS behavior measured in round 3."
+       }
+      },
+      "basis": "~160 LOC name validation with NFC normalization + case folding, plus table tests.",
+      "risk": "Unicode case-folding edge cases (\u00df, dotted/dotless i)."
+     }
+    },
+    {
+     "id": "R18'''",
+     "text": "Commit from memory (blob + changed subtrees + HEAD; author = writer) with GIT_OPT_ENABLE_FSYNC_GITDIR; identical bytes \u2192 return rev, no commit; then write docs/ file. Startup per account before serving: delete stale *.lock, checkout_head force + remove_untracked, fsck --connectivity-only, gc --auto",
+     "backing": "~240 LOC; save p95 17 ms; checkout 25 ms\u20131.3 s; fsck 0.05 s MEASURED",
+     "states": "Committed, Projected, Startup",
+     "category": "arch",
+     "status": "validated",
+     "story": "A save is durable in history before it's acknowledged",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 30,
+      "depends_on": [
+       "R15'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 15,
+        "why": "~240 LOC at 20 LOC/min = 12, plus 3 porting the round-3 and round-5 spike code."
+       },
+       "build_test": {
+        "min": 10,
+        "why": "~3 cycles at 3 min; the 4 crash-state fixtures and the stale-lock test are the slow ones."
+       },
+       "verify": {
+        "min": 5,
+        "why": "Rerun the round-3 benchmark: 300 saves on a 10k-doc repo, p95 against 100 ms."
+       }
+      },
+      "basis": "~240 LOC: blob write, changed-subtree rebuild, HEAD update, gitdir fsync option, identical-bytes no-op, startup recovery. Spiked in rounds 3 and 5.",
+      "risk": "Unsafe libgit2_sys option call; nested-path subtree rebuild; 4 crash-state tests to write."
+     }
+    },
+    {
+     "id": "R61'",
+     "text": "Bare repo at /data/accounts/<id>/git (init_bare) opened with set_workdir(docs/, false): no .git file/dir in docs/, no core.worktree; shell git uses --git-dir/--work-tree",
+     "backing": "0 LOC; r5 spike",
+     "states": "Projected, Script",
+     "category": "arch/security",
+     "status": "validated",
+     "story": "Your doc folder contains only your files, never git internals",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 5,
+      "depends_on": [
+       "R15'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 3,
+        "why": "~20 LOC, copied from the round-5 spike."
+       },
+       "build_test": {
+        "min": 2,
+        "why": "One short cycle with the 'no .git in docs/' test."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by the R55 test."
+       }
+      },
+      "basis": "init_bare + set_workdir and one test asserting no .git in docs/. Spiked in round 5.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R54''",
+     "text": "Durable commit before ack (gitdir fsync); editor resends unacked buffer; startup checkout+fsck; volume backups",
+     "backing": "\u2014",
+     "states": "Committed, Backed",
+     "category": "risk",
+     "status": "unconfirmed",
+     "story": "No acknowledged edit is lost after a crash or restart",
+     "kind": "assumption"
+    },
+    {
+     "id": "R33'",
+     "text": "Doc \u2264 5 MB UTF-8",
+     "backing": "ASSUMED",
+     "states": "Rejected",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "A single doc can be up to 5 MB",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 5,
+      "depends_on": [
+       "R15'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 3,
+        "why": "~25 LOC: size check, 413 error."
+       },
+       "build_test": {
+        "min": 2,
+        "why": "One cycle."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by its unit test."
+       }
+      },
+      "basis": "Size check, 413 error, one test.",
+      "risk": "Low."
+     }
+    }
+   ]
+  },
+  {
+   "id": "search",
+   "name": "Search",
+   "summary": "Disposable FTS5 index for search and listing.",
+   "requirements": [
+    {
+     "id": "R19''''",
+     "text": "FTS5 via docmap(path PK \u2192 rowid); search + listing only; rebuilt unconditionally at startup",
+     "backing": "~140 LOC; upsert 0.34 ms; rebuild 0.7 s MEASURED",
+     "states": "Projected, Startup",
+     "category": "arch",
+     "status": "validated",
+     "story": "Search returns ranked results with snippets instantly",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 25,
+      "depends_on": [
+       "R15'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 12,
+        "why": "~140 LOC at 20 LOC/min = 7, plus 5 designing FTS5 query escaping for user input."
+       },
+       "build_test": {
+        "min": 8,
+        "why": "~2.5 cycles, including generating the 10k-doc fixture."
+       },
+       "verify": {
+        "min": 5,
+        "why": "Query p95 against the 20 ms budget with the round-1 corpus generator."
+       }
+      },
+      "basis": "~140 LOC: docmap + FTS5 schema, upsert by rowid, bm25 + snippet query, folder/date filters, startup rebuild. Spiked in rounds 1 and 3.",
+      "risk": "User query syntax must be escaped for FTS5 MATCH."
+     }
+    }
+   ]
+  },
+  {
+   "id": "scripting",
+   "name": "Scripting",
+   "summary": "The filesystem is the script API; one commit per applied run.",
+   "requirements": [
+    {
+     "id": "R28'''",
+     "text": "Filesystem is the script API: /docs overlay with full file + directory ops; final /docs state = change set; empty dirs dropped and reported; mtimes = last commit time; docs.search optional; history not mounted; dry_run diffs; one commit per applied run",
+     "backing": "Engineer: files exposed to scripts as a filesystem as much as possible; file ops spiked r2",
+     "states": "Script, Postlude, Applied",
+     "category": "arch/USER",
+     "status": "user-specified",
+     "short": "capturing folder ops (mkdir/rename dir) in scripts",
+     "story": "Agent scripts work on your docs as ordinary files and folders",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 40,
+      "depends_on": [
+       "R18'''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 25,
+        "why": "~380 LOC at 20 LOC/min = 19, plus 6 porting the round-2 capture spike (100 lines)."
+       },
+       "build_test": {
+        "min": 10,
+        "why": "~3 cycles at 3 min; each test starts a Monty worker."
+       },
+       "verify": {
+        "min": 5,
+        "why": "Run 3 representative agent scripts end to end: bulk rename, regex rewrite, read-only report."
+       }
+      },
+      "basis": "~380 LOC: pool setup, overlay mount, OsCall capture, postlude, similar diffs, Batch build, mtimes, empty-dir drop. Capture spiked in round 2.",
+      "risk": "Postlude / result= convention and PosixPath parsing are new glue."
+     }
+    },
+    {
+     "id": "R64",
+     "text": "Capture directory ops (mkdir, rmdir, dir rename) through monty-fs and turn dir renames into per-document moves",
+     "backing": "UNVERIFIED: round 2 spiked file ops only; first spike in W7",
+     "states": "Script, Postlude",
+     "category": "arch/risk",
+     "status": "unconfirmed",
+     "short": "capturing folder ops in scripts",
+     "story": "Scripts can create, remove, and rename folders",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 15,
+      "depends_on": [
+       "R28'''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 5,
+        "why": "~50 LOC to turn directory renames into per-document moves."
+       },
+       "build_test": {
+        "min": 10,
+        "why": "The spike itself: a minimal Monty run of mkdir / rmdir / rename on an overlay mount (same size as the round-2 spike)."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by the R55 folder-rename test."
+       }
+      },
+      "basis": "10-min spike of mkdir/rmdir/dir-rename through monty-fs, then wiring dir renames to per-document moves.",
+      "risk": "Largest unknown in scripting: if monty-fs doesn't route dir ops, deriving renames from the file diff adds ~20 min."
+     }
+    },
+    {
+     "id": "R29''",
+     "text": "Limits: 30 s, 256 MB, 50 MB overlay, max_suspensions 1 000 000, 1 MB stdout",
+     "backing": "native Monty",
+     "states": "Script",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "A runaway script is stopped by time and memory limits",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 5,
+      "depends_on": [
+       "R28'''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 3,
+        "why": "~20 LOC of ResourceLimits config and a stdout cap."
+       },
+       "build_test": {
+        "min": 2,
+        "why": "One cycle; each limit test fails fast by design."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by its tests."
+       }
+      },
+      "basis": "Monty ResourceLimits config + stdout cap in the print callback; one test per limit.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R53",
+     "text": "monty-pool subprocess isolation",
+     "backing": "VALIDATED",
+     "states": "Script",
+     "category": "risk",
+     "status": "validated",
+     "story": "A crashing script can't take down the server",
+     "kind": "assumption"
+    },
+    {
+     "id": "R44",
+     "text": "Warm script start < 5 ms",
+     "backing": "0.07 ms MEASURED; cold worker 335 ms",
+     "states": "Script",
+     "category": "perf",
+     "status": "validated",
+     "story": "Scripts start instantly",
+     "kind": "assumption"
+    }
+   ]
+  },
+  {
+   "id": "mcp",
+   "name": "MCP & auth",
+   "summary": "AuthKit is the OAuth server; rdocs validates tokens and serves 8 tools.",
+   "requirements": [
+    {
+     "id": "R10'",
+     "text": "Email allowlist `ALLOWED_EMAILS`; per-account private repo keyed by WorkOS user id",
+     "backing": "overrides open sign-up (r2)",
+     "states": "Rejected",
+     "category": "arch",
+     "status": "needs-you",
+     "short": "email allowlist instead of open sign-up (overrides your call)",
+     "story": "Only allowlisted emails can sign in",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 5,
+      "depends_on": [
+       "R35'''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 3,
+        "why": "~25 LOC: parse ALLOWED_EMAILS, check it in two places."
+       },
+       "build_test": {
+        "min": 2,
+        "why": "One cycle with a 403 test."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by R55."
+       }
+      },
+      "basis": "Parse ALLOWED_EMAILS, check in the login callback and MCP middleware, 403 test.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R11",
+     "text": "WorkOS AuthKit: Google, CIMD + DCR, JWKS, resource indicator, identity linking. Work: WorkOS dashboard config (Google connection, CIMD + DCR, resource indicator); human gate.",
+     "backing": "LOCKED; Google-in-AuthKit needs dashboard confirmation",
+     "states": "OAuth",
+     "category": "arch/adopt",
+     "status": "unconfirmed",
+     "story": "Sign-in and agent authorization flow through WorkOS AuthKit with Google",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 10,
+      "depends_on": [
+       "R35'''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 5,
+        "why": "Write a ~30-line setup checklist for the WorkOS dashboard."
+       },
+       "build_test": {
+        "min": 0,
+        "why": "Nothing to build."
+       },
+       "verify": {
+        "min": 5,
+        "why": "curl both discovery endpoints and confirm the CIMD and DCR toggles. Your dashboard time isn't counted."
+       }
+      },
+      "basis": "Write the WorkOS setup checklist and verify the discovery endpoints once configured. The dashboard work itself is a human gate and isn't counted.",
+      "risk": "Waits on you: Google OAuth client, CIMD + DCR toggles, resource indicator."
+     }
+    },
+    {
+     "id": "R23'",
+     "text": "Encrypted cookie session {account_id, expires}; 30-day rolling. Includes the AuthKit code exchange on /login callback.",
+     "backing": "~100 LOC",
+     "states": "\u2014",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Users stay signed in for 30 days",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 25,
+      "depends_on": [
+       "R35'''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 15,
+        "why": "~200 LOC at 20 LOC/min = 10, plus 5 reading the WorkOS auth API (there's no Rust SDK)."
+       },
+       "build_test": {
+        "min": 5,
+        "why": "Two cycles for cookie and expiry tests."
+       },
+       "verify": {
+        "min": 5,
+        "why": "One local login against WorkOS if R11 is configured; otherwise it moves to the R55 smoke."
+       }
+      },
+      "basis": "AuthKit code exchange over HTTP (no Rust SDK), PrivateCookieJar session, 30-day rolling expiry.",
+      "risk": "WorkOS API shapes read from docs; only proven end-to-end in the real smoke test."
+     }
+    },
+    {
+     "id": "R24'",
+     "text": "401 + protected-resource metadata; AS metadata proxy; JWT (JWKS, aud, exp, allowlist); writer name = client_id via known-clients map, fallback host",
+     "backing": "~150 LOC",
+     "states": "Ready",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Agent requests are authenticated, and each edit is credited to the agent that made it",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 20,
+      "depends_on": [
+       "R15'",
+       "R11"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 12,
+        "why": "~150 LOC at 20 LOC/min = 8, plus 4 re-reading the protected-resource metadata spec."
+       },
+       "build_test": {
+        "min": 8,
+        "why": "~2.5 cycles; tests sign tokens with a local key."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Real-token check happens in the R55 smoke."
+       }
+      },
+      "basis": "~150 LOC: protected-resource metadata, AS metadata proxy, JWKS cache, JWT validation, client_id \u2192 writer name; tests with locally signed tokens.",
+      "risk": "client_id claim shape unconfirmed until a real Claude Code token is decoded."
+     }
+    },
+    {
+     "id": "R27''",
+     "text": "8 MCP tools via rmcp: list, search, read, history(list/show via git CLI --follow) [readOnlyHint] + save, move (folder move = Batch), delete, run_script; restore = save old content",
+     "backing": "~520 LOC",
+     "states": "ToolCall",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Agents get 8 tools; read-only ones can be auto-approved",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 40,
+      "depends_on": [
+       "R18'''",
+       "R19''''",
+       "R28'''",
+       "R24'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 25,
+        "why": "~520 LOC at 20 LOC/min = 26; the 8 handlers are thin wrappers and rmcp macros generate the schemas."
+       },
+       "build_test": {
+        "min": 10,
+        "why": "~3 cycles of the rmcp-client integration harness."
+       },
+       "verify": {
+        "min": 5,
+        "why": "Connect Claude Code locally and call each tool once."
+       }
+      },
+      "basis": "~520 LOC: 8 tool schemas + handlers over store, search, history, scripts via rmcp; rmcp-client integration tests.",
+      "risk": "rmcp macro API churn between versions."
+     }
+    },
+    {
+     "id": "R48",
+     "text": "Google cannot be MCP AS \u2192 AuthKit",
+     "backing": "CONFIRMED",
+     "states": "OAuth",
+     "category": "infeasibility",
+     "status": "validated",
+     "story": "Agents authorize through AuthKit because Google can't issue MCP tokens",
+     "kind": "assumption"
+    }
+   ]
+  },
+  {
+   "id": "web",
+   "name": "Web client",
+   "summary": "One TS bundle: SolidJS shell + Milkdown kit editor.",
+   "requirements": [
+    {
+     "id": "R14'",
+     "text": "One Vite TS bundle: SolidJS shell + @milkdown/kit (commonmark, gfm, listener, history, clipboard, upload). Includes the SolidJS shell: folder tree (create, rename, drag, delete), \u2318K palette, download menu.",
+     "backing": "146 KB gz MEASURED",
+     "states": "\u2014",
+     "category": "arch/adopt",
+     "status": "validated",
+     "story": "Users get a folder tree, search palette, and editor in one small bundle",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 60,
+      "depends_on": [
+       "R15'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 40,
+        "why": "~800 LOC TS at 25 LOC/min = 32, plus 8 for layout and interaction design."
+       },
+       "build_test": {
+        "min": 10,
+        "why": "~10 Vite + vitest cycles at about 1 min each."
+       },
+       "verify": {
+        "min": 10,
+        "why": "Drive the tree by hand in a browser: create, rename, drag, delete, palette. UI checks are slow."
+       }
+      },
+      "basis": "~800 LOC TS: Solid shell, folder tree (create, rename, drag, delete), context menu, \u2318K palette, API client; verified by driving it in a browser.",
+      "risk": "No measured history for Solid UI work; drag-and-drop tree is the usual time sink."
+     }
+    },
+    {
+     "id": "R21'",
+     "text": "Editor reconcile: narrow replace via findDiffStart/End (ignore heading ids), keep selection; dirty \u2192 overwrite with notice + Restore",
+     "backing": "~40 LOC + tests; spiked",
+     "states": "Stale",
+     "category": "arch",
+     "status": "validated",
+     "story": "An agent's edit appears in your open doc without moving your cursor",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 15,
+      "depends_on": [
+       "R14'",
+       "R60''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 8,
+        "why": "~40 LOC = 2, plus 6 working through ProseMirror diff and selection mapping (spiked in round 2)."
+       },
+       "build_test": {
+        "min": 7,
+        "why": "~7 quick test cycles over headings, tables, and lists."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by the R55 'agent save while open' journey."
+       }
+      },
+      "basis": "~40 LOC narrow replace with selection mapping, ignoring heading ids. Spiked in round 2.",
+      "risk": "Selection mapping across complex nodes (tables, lists)."
+     }
+    },
+    {
+     "id": "R32''",
+     "text": "Images: account-root `_assets/<git-blob-id>.<ext>`, root-relative links; png/jpeg/gif/webp \u2264 20 MB; no SVG. Includes paste/drag upload in the editor.",
+     "backing": "~100 LOC",
+     "states": "\u2014",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Users can paste or drag images, and they survive doc moves",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 15,
+      "depends_on": [
+       "R14'",
+       "R12'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 8,
+        "why": "~150 LOC Rust + TS at 20 LOC/min."
+       },
+       "build_test": {
+        "min": 7,
+        "why": "Two Rust cycles plus one TS cycle."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by the R55 image-paste journey."
+       }
+      },
+      "basis": "Upload endpoint with type/size checks and blob-id naming, Milkdown upload plugin wiring.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R37''",
+     "text": "History drawer: commit list grouped by writer, jsdiff diffWordsWithSpace, Restore button, deleted-doc list. Includes server history reads (git CLI log --follow, show, deleted list) used by both the drawer and the MCP history tool.",
+     "backing": "~250 LOC; jsdiff 2.5 KB gz",
+     "states": "\u2014",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Users can browse a doc's history, see word-level diffs, and restore",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 50,
+      "depends_on": [
+       "R18'''",
+       "R14'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 28,
+        "why": "Rust history reads ~150 LOC at 20 LOC/min = 7.5; TS drawer ~250 LOC at 25 LOC/min = 10; plus 5 reading git log output formats and 5 designing the same-writer grouping."
+       },
+       "build_test": {
+        "min": 15,
+        "why": "3 Rust cycles at 3 min plus 6 TS cycles at 1 min."
+       },
+       "verify": {
+        "min": 7,
+        "why": "Browse a 1,000-commit history in the browser, restore a version, restore a deleted doc."
+       }
+      },
+      "basis": "Server history reads (git CLI log --follow / show / deleted list, ~150 LOC Rust, 30 min) + drawer (commit list, same-writer grouping, jsdiff word diffs, restore, deleted list, ~250 LOC TS, 40 min).",
+      "risk": "On the critical path; splitting server reads from the drawer would let the MCP history tool and the drawer run in parallel. git CLI output parsing."
+     }
+    },
+    {
+     "id": "R38'",
+     "text": "Autosave 500 ms / \u2265 5 s; one boot request; hover prefetch LRU",
+     "backing": "ASSUMED",
+     "states": "\u2014",
+     "category": "arch/perf",
+     "status": "unconfirmed",
+     "story": "Docs autosave and open instantly",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 15,
+      "depends_on": [
+       "R14'",
+       "R12'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 10,
+        "why": "~100 LOC at 25 LOC/min = 4, plus 6 for the timing logic (debounce, max interval, LRU)."
+       },
+       "build_test": {
+        "min": 5,
+        "why": "Fake-timer unit tests, ~5 cycles."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by R56 cold-load and R55 journeys."
+       }
+      },
+      "basis": "Autosave debounce + max interval, boot request, hover-prefetch LRU.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R39'",
+     "text": "Unreachable server \u2192 banner; EventSource auto-reconnect \u2192 tree refetch",
+     "backing": "prefs",
+     "states": "\u2014",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Users see a clear banner when the server is unreachable",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 5,
+      "depends_on": [
+       "R14'",
+       "R60''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 3,
+        "why": "~30 LOC banner bound to EventSource state."
+       },
+       "build_test": {
+        "min": 2,
+        "why": "One test toggling the connection."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by R55."
+       }
+      },
+      "basis": "Banner bound to EventSource state.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R60''",
+     "text": "SSE per account: one `changed {commit, writer, paths[], tab_id}` event",
+     "backing": "~60 LOC",
+     "states": "Visible",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Open tabs learn about other writers' changes right away",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 20,
+      "depends_on": [
+       "R12'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 10,
+        "why": "~60 LOC Rust + ~40 LOC TS = 5, plus 5 settling reconnect and tab_id semantics."
+       },
+       "build_test": {
+        "min": 7,
+        "why": "Two Rust cycles plus an EventSource test."
+       },
+       "verify": {
+        "min": 3,
+        "why": "Two browser tabs: confirm the event arrives and the tab_id echo is ignored."
+       }
+      },
+      "basis": "Per-account broadcast channel, cookie-authenticated SSE endpoint, tab_id echo.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R63'",
+     "text": "One in-flight save per doc, base = last ack rev; dirty = buffer \u2260 last ack content (in-flight counts); 409 handled as remote change (overwrite_of); tab_id echoed and own events ignored",
+     "backing": "~25 LOC",
+     "states": "Visible, OwnEcho",
+     "category": "correctness",
+     "status": "unconfirmed",
+     "story": "Typing never triggers a false \"overwrote changes\" notice",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 10,
+      "depends_on": [
+       "R14'",
+       "R12'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 5,
+        "why": "~60 LOC = 2.5, plus 2.5 settling the dirty and in-flight state."
+       },
+       "build_test": {
+        "min": 5,
+        "why": "Unit tests on the save queue; the Playwright cases are counted in R55."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by R55."
+       }
+      },
+      "basis": "One-in-flight queue, dirty definition, 409 \u2192 overwrite path. Its Playwright cases are counted in R55.",
+      "risk": "Race bugs show up only in end-to-end tests."
+     }
+    },
+    {
+     "id": "R47",
+     "text": "JS editor (no mature Rust WYSIWYG)",
+     "backing": "CONFIRMED",
+     "states": "\u2014",
+     "category": "infeasibility",
+     "status": "validated",
+     "story": "Agents build the editor on Milkdown since no mature Rust WYSIWYG exists",
+     "kind": "assumption"
+    },
+    {
+     "id": "R50''",
+     "text": "remark vs pulldown-cmark divergence \u2192 corpus test",
+     "backing": "~150 LOC",
+     "states": "\u2014",
+     "category": "risk",
+     "status": "unconfirmed",
+     "story": "PDFs render the same markdown the editor shows",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 10,
+      "depends_on": [
+       "R14'",
+       "R30''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 5,
+        "why": "Grow the round-2 corpus from 11 to ~20 docs and write a ~40-line compare script."
+       },
+       "build_test": {
+        "min": 5,
+        "why": "Run it and triage the differences."
+       },
+       "verify": {
+        "min": 0,
+        "why": "The script is the check."
+       }
+      },
+      "basis": "~20-document corpus and a script comparing remark output with pulldown-cmark rendering.",
+      "risk": "Divergences found may need stringify-option changes (R51\u2032)."
+     }
+    },
+    {
+     "id": "R51'",
+     "text": "Never save on open; remark stringify options match agent conventions (`-` bullets, ATX, inline links)",
+     "backing": "spiked r2",
+     "states": "\u2014",
+     "category": "risk",
+     "status": "validated",
+     "story": "Opening a doc never rewrites it, and edits change as little markdown as possible",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 5,
+      "depends_on": [
+       "R14'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 3,
+        "why": "Stringify options plus a no-save-on-open guard."
+       },
+       "build_test": {
+        "min": 2,
+        "why": "One test asserting open produces no save."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by R50's corpus."
+       }
+      },
+      "basis": "remark stringify options + a no-save-on-open guard and test.",
+      "risk": "Low."
+     }
+    }
+   ]
+  },
+  {
+   "id": "export",
+   "name": "Export",
+   "summary": "Web downloads: md, zip, pdf.",
+   "requirements": [
+    {
+     "id": "R30''",
+     "text": "Web export: .md bytes; .zip (account-root paths + referenced assets); .pdf via md2pdf-core; merman pinned",
+     "backing": "~80 LOC; 44 ms MEASURED",
+     "states": "\u2014",
+     "category": "arch/adopt",
+     "status": "validated",
+     "story": "Users can download a doc or folder as .md, .zip, or .pdf",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 30,
+      "depends_on": [
+       "R18'''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 15,
+        "why": "~120 LOC at 20 LOC/min = 6, plus 9 reading the md2pdf-core API and streaming-zip examples."
+       },
+       "build_test": {
+        "min": 8,
+        "why": "md2pdf/Typst compile \u2248 1 min, plus 2 cycles at 3 min plus fixes."
+       },
+       "verify": {
+        "min": 7,
+        "why": "Open the generated .md, .zip, and .pdf by hand and check images and filenames (3 formats)."
+       }
+      },
+      "basis": "md bytes, streamed zip with referenced assets, md2pdf-core call with root-relative images.",
+      "risk": "Young crate (209 downloads) with a merman pin; image path resolution."
+     }
+    },
+    {
+     "id": "R45",
+     "text": "~10-page PDF < 500 ms",
+     "backing": "44 ms MEASURED",
+     "states": "\u2014",
+     "category": "perf",
+     "status": "validated",
+     "story": "PDFs generate in under half a second",
+     "kind": "assumption"
+    }
+   ]
+  },
+  {
+   "id": "ops",
+   "name": "Deploy & operations",
+   "summary": "One Railway service, one volume with scheduled backups.",
+   "requirements": [
+    {
+     "id": "R12'",
+     "text": "One Rust axum binary owns /data: API, SSE, MCP, static assets; rmcp allowed_hosts = public host",
+     "backing": "~1.7k LOC",
+     "states": "\u2014",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Agents deploy one binary that serves the app, API, and MCP",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 20,
+      "depends_on": [
+       "R15'",
+       "R23'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 12,
+        "why": "~200 LOC at 20 LOC/min = 10, plus 2 wiring embedded static assets."
+       },
+       "build_test": {
+        "min": 5,
+        "why": "Two cycles, one fixing route tests."
+       },
+       "verify": {
+        "min": 3,
+        "why": "curl each route once."
+       }
+      },
+      "basis": "axum router, JSON handlers, embedded static assets from the Vite build.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R35'''",
+     "text": "Docker (cargo-chef; Vite stage; Monty worker binary; git CLI for gc/fsck) \u2192 Railway service + volume (backups on); rust-toolchain \u2265 1.98",
+     "backing": "config",
+     "states": "\u2014",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Agents ship with a single container deploy to Railway",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 45,
+      "depends_on": [],
+      "breakdown": {
+       "edit": {
+        "min": 25,
+        "why": "~150 lines of config at 10 lines/min = 15, plus 10 reading the Monty, cargo-chef, and Railway docs."
+       },
+       "build_test": {
+        "min": 15,
+        "why": "First cold build of the workspace: vendored libgit2, Typst (md2pdf alone took 58 s in round 1), Monty \u2248 5; first cold Docker image build \u2248 10."
+       },
+       "verify": {
+        "min": 5,
+        "why": "Run check.sh green and boot the container locally against /healthz."
+       }
+      },
+      "basis": "Config only (~150 lines): Cargo workspace, rust-toolchain.toml, scripts/check.sh, Dockerfile with cargo-chef, Vite stage, Monty worker binary, git CLI.",
+      "risk": "First cold build is slow (md2pdf alone compiled in 58 s in round 1); Monty needs rustc \u2265 1.98, so the toolchain must be installed first."
+     }
+    },
+    {
+     "id": "R34''",
+     "text": "Railway scheduled volume backups (daily 6 d, weekly 27 d, monthly 89 d); one manual restore in test env before launch",
+     "backing": "config; same-provider risk flagged to engineer",
+     "states": "Backed",
+     "category": "arch",
+     "status": "needs-you",
+     "short": "backups only on Railway, or also off-provider?",
+     "story": "The volume is backed up daily, weekly, and monthly",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 5,
+      "depends_on": [
+       "R35'''"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 3,
+        "why": "One Railway CLI/API call to set the schedule."
+       },
+       "build_test": {
+        "min": 0,
+        "why": "Nothing to build."
+       },
+       "verify": {
+        "min": 2,
+        "why": "Confirm the schedule is listed; the restore test is in R55."
+       }
+      },
+      "basis": "Turn on the Railway backup schedule and record it; the restore test runs in the R55 smoke.",
+      "risk": "Low."
+     }
+    }
+   ]
+  },
+  {
+   "id": "cross",
+   "name": "Cross-cutting",
+   "summary": "Performance, security, verification, scope.",
+   "requirements": [
+    {
+     "id": "R42",
+     "text": "Keystroke < 16 ms; doc open < 50 ms p95; cold load < 1 s p95 (gated)",
+     "backing": "ASSUMED",
+     "states": "\u2014",
+     "category": "perf",
+     "status": "unconfirmed",
+     "short": "cold load < 1 s; doc open < 50 ms",
+     "story": "Typing, opening docs, and first load stay instant",
+     "kind": "assumption"
+    },
+    {
+     "id": "R43'''",
+     "text": "Agent save \u2192 open editor < 300 ms p95 (gated); save ack < 100 ms (17 ms MEASURED, not gated)",
+     "backing": "mixed",
+     "states": "Visible",
+     "category": "perf",
+     "status": "unconfirmed",
+     "short": "agent save \u2192 open editor < 300 ms",
+     "story": "An agent's save shows up in your open editor within 300 ms",
+     "kind": "assumption"
+    },
+    {
+     "id": "R62",
+     "text": "Cookie HttpOnly; Secure; SameSite=Lax set explicitly; CSP script-src 'self'; nosniff on /_assets and downloads; Content-Disposition attachment on exports; snippets rendered as text nodes",
+     "backing": "~15 LOC; cookie crate defaults unset (r4)",
+     "states": "\u2014",
+     "category": "security",
+     "status": "unconfirmed",
+     "story": "Other sites can't use or steal your session",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 10,
+      "depends_on": [
+       "R23'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 5,
+        "why": "~40 LOC of tower-http header layers and cookie attributes."
+       },
+       "build_test": {
+        "min": 5,
+        "why": "One to two cycles of an integration test asserting each header."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by that test."
+       }
+      },
+      "basis": "tower-http headers, explicit cookie attributes, one integration test asserting them.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R36",
+     "text": "Structured errors (9 codes incl. not_allowed)",
+     "backing": "~100 LOC",
+     "states": "Rejected, Failed",
+     "category": "arch",
+     "status": "unconfirmed",
+     "story": "Errors say exactly what went wrong",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 10,
+      "depends_on": [
+       "R15'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 6,
+        "why": "~80 LOC = 4, plus 2 choosing the error codes."
+       },
+       "build_test": {
+        "min": 4,
+        "why": "One cycle with a test per code, plus a fix."
+       },
+       "verify": {
+        "min": 0,
+        "why": "Covered by its tests."
+       }
+      },
+      "basis": "Error enum \u2192 JSON with 9 codes, one test per code.",
+      "risk": "Low."
+     }
+    },
+    {
+     "id": "R55''",
+     "text": "check.sh = CI; real-binary integration over HTTP + MCP incl. cross-account isolation, allowlist 403, security headers/cookie attrs, script cannot see .git or escape /docs, crash-state recovery (4 states + stale lock), script folder rename keeps per-document history, script mkdir of an empty dir is reported as dropped; Playwright e2e incl. continuous typing, dropped ack, agent save during in-flight save; Railway smoke (Google + Claude Code; decode a real token). Includes the real Railway smoke test (30 min).",
+     "backing": "prefs",
+     "states": "\u2014",
+     "category": "verification",
+     "status": "unconfirmed",
+     "story": "Agents prove every behavior against the real system before calling it done",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 90,
+      "depends_on": [
+       "R27''",
+       "R21'",
+       "R37''",
+       "R12'",
+       "R11"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 37,
+        "why": "Rust integration suite ~400 LOC at 20 LOC/min = 20; Playwright, 8 journeys, ~300 LOC at 25 LOC/min = 12; smoke checklist 5."
+       },
+       "build_test": {
+        "min": 33,
+        "why": "Integration: 4 cycles at 3 min = 12. Playwright: 8 journeys at ~1.5 min, run about twice with fixes = 21."
+       },
+       "verify": {
+        "min": 20,
+        "why": "Railway smoke: deploy \u2248 5, Google login, Claude Code OAuth, token decode, and a volume restore test \u2248 15. It waits on you to sign in."
+       }
+      },
+      "basis": "Integration suite (isolation, allowlist, headers, .git hidden, crash states) 30 min; Playwright journeys (8) 30 min; real Railway smoke (deploy, Google login, Claude Code OAuth, decode token, restore test) 30 min.",
+      "risk": "Flaky end-to-end tests; the smoke test waits on you to sign in."
+     }
+    },
+    {
+     "id": "R56''",
+     "text": "Bench gate: agent\u2192editor, cold load",
+     "backing": "~80 LOC",
+     "states": "\u2014",
+     "category": "verification",
+     "status": "unconfirmed",
+     "story": "A speed regression fails the agent's build",
+     "kind": "implementation",
+     "scope": {
+      "first_pass_min": 15,
+      "depends_on": [
+       "R60''",
+       "R14'"
+      ],
+      "breakdown": {
+       "edit": {
+        "min": 10,
+        "why": "~120 LOC at 25 LOC/min = 5, plus 5 building the timing harness."
+       },
+       "build_test": {
+        "min": 5,
+        "why": "Repeated runs to get past timing noise."
+       },
+       "verify": {
+        "min": 0,
+        "why": "The gate is the check."
+       }
+      },
+      "basis": "Bench script timing agent save \u2192 SSE \u2192 editor update and cold load, against bench/budgets.json.",
+      "risk": "Timing noise needs repeated runs."
+     }
+    }
+   ]
+  }
+ ],
+ "scope_model": {
+  "failure_multiplier": 1.136,
+  "reference": "alxrod/folio-lite, 22 merged PRs: wall p50 15 min, failure rate 13.6%, retry 58 s; excludes pre-commit authoring; no Rust/Monty/Milkdown history",
+  "confidence": "LOW_DATA_CONFIDENCE \u00b150%",
+  "human_gates": [
+   "WorkOS project setup",
+   "Railway login",
+   "real Google sign-in + Claude Code OAuth consent for smoke test"
+  ],
+  "rates": [
+   {
+    "name": "Rust authoring",
+    "value": "20 LOC/min",
+    "evidence": "ASSUMED; calibrate on R35, R15, R18 actuals"
+   },
+   {
+    "name": "TypeScript authoring",
+    "value": "25 LOC/min",
+    "evidence": "ASSUMED; calibrate on R14"
+   },
+   {
+    "name": "Config authoring",
+    "value": "10 lines/min",
+    "evidence": "ASSUMED"
+   },
+   {
+    "name": "Rust compile-and-test cycle",
+    "value": "3 min",
+    "evidence": "ASSUMED incremental; cold md2pdf build measured 58 s (round 1)"
+   },
+   {
+    "name": "TS test cycle",
+    "value": "1 min",
+    "evidence": "ASSUMED (vitest)"
+   }
+  ]
+ }
+}

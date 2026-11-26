@@ -1,19 +1,19 @@
 ---
 name: state-requirements
-description: Exhaustively state every requirement motivating a plan, an implemented feature or section of the codebase, or a workflow. Produces a unified requirements register (with supporting assumptions, code footprint, performance metrics, stated infeasibilities, risks, dependencies, and scope when proposing new work) alongside a state machine diagram.
+description: "Author and render a validated JSON requirements register grouped by architecture component sections, with one-line user stories, four explicit statuses, assumption vs implementation kinds, phase-by-phase scope on implementation requirements, and an interactive self-contained HTML view."
 ---
 
 # State requirements
 
-Make every implicit requirement motivating a design, decision, or workflow
-explicit and empirically testable. A **requirement** is anything that motivates
-a decision: user intent, architecture and owned code footprint, assumptions,
-performance or timing metrics, stated infeasibilities, risks, parallelism or
-dependency constraints, and scoped work estimates.
+Make every implicit requirement motivating a plan, an implemented feature or
+section of the codebase, or a workflow explicit and empirically testable. A
+**requirement** is anything that motivates a decision: user intent,
+architecture choices, owned code footprint, assumptions, performance or timing
+metrics, stated infeasibilities, risks, and implementation work.
 
-Run this on a **plan**, on an **implemented feature or section of the codebase**,
-or on a **workflow/dev cycle**. Do not polish or defend the target — expose
-everything it assumes with concrete backing evidence.
+Store the register as a **JSON file** (the source of truth) and render it with
+the bundled stdlib script into **one self-contained HTML view** — never dump a
+giant flat 50-row Markdown table in chat.
 
 ## Grounding rule: code and data over prose
 
@@ -25,65 +25,93 @@ everything it assumes with concrete backing evidence.
 - **On a plan:** Extract every decision and assumption implied by the plan.
 - **On a workflow or dev cycle:** Extract every stage, wait, check, failure
   mode, and timing bottleneck from measured data.
-- **No permanent drifting docs:** Do not create a hand-maintained requirements
-  Markdown file in the repository for implemented code. Keep the register in
-  the response or in an ephemeral receipt; surviving requirements belong
-  encoded directly in code, tests, and structured data.
+- **Future intentions:** When documenting long-term maintenance and
+  extensibility for a feature, **if the user has not expressed future
+  intentions, ask the user for explanations instead of assuming.**
+- **No permanent drifting prose docs:** Do not maintain a parallel hand-edited
+  Markdown requirements spec for implemented code; surviving requirements
+  belong encoded directly in code, tests, and structured data.
 
-## Step 1: State machine diagram (prerequisite)
+## Step 1: Diagrams (prerequisite)
 
-If a current state machine diagram has not been generated yet for the target,
-invoke **`system-diagram`** first to build and validate one (reflecting
-all known or targeted performance and timing metrics directly on the states and
-transitions). If an up-to-date diagram already exists, reuse and reference its
-state IDs below.
+If current diagrams have not been generated yet for the target, invoke
+**`system-diagram`** first:
 
-## Step 2: Unified requirements register
+- For a plan or system, build **one top-level `architecture` diagram** (its
+  component IDs become the section IDs of the requirements register), plus
+  **`flow` diagrams only for critical paths**.
+- For a lifecycle or workflow, build a **`flow` diagram**.
+- Ensure all known or targeted performance and timing metrics appear on nodes
+  and edges.
 
-Express **everything** reported by this skill as conceptual **requirements**
-under **one simple sequential ID system (`R1`, `R2`, `R3`, …)** — never split
-into separate lettered namespaces. Every requirement carries its category, its
-backing explanation (the assumptions, risks, or metrics supporting why it
-exists), and whether it is `MEASURED` (with command/receipt) or `ASSUMED`.
+## Step 2: Author the JSON requirements register
 
-| ID | Category | State IDs | Requirement statement | Backing explanation (assumptions, metrics, risks, or footprint) | Source & encoding (`code` / `data` / `prose-only`) |
-| --- | --- | --- | --- | --- | --- |
+Use **one simple global sequential ID system (`R1`, `R2`, `R3`, …)** across all
+sections — never per-section ID prefixes. Group requirements into **sections**
+matching the architecture diagram's component IDs (plus `intent` and `cross`
+meta sections as needed), each with a one-sentence `summary`.
 
-Ensure the unified register explicitly covers every applicable dimension below:
+### Required schema per requirement
 
-1. **Intent requirements:** The 1 to 3 plain user or product outcomes that the
-   work exists to deliver, separated from implementation choices made to serve
-   them.
-2. **Architecture, stack, and owned code footprint requirements:** Every tech
-   stack choice, protocol, external/OSS tool, and custom component (parser,
-   daemon, UI surface, script, CI job, glue layer), stating:
-   - Whether it is custom or adopted and its exact/estimated owned footprint
-     (files, LOC, operational surface).
-   - Its long-term maintenance trajectory and extensibility. **If the user has
-     not expressed future intentions for a feature, ask the user for
-     explanations instead of assuming.**
-   - Any inherited repository convention or self-imposed rule that forces extra
-     custom work (list it as its own `R#` so it can be examined directly).
-3. **Performance, timing, and resource requirements:** Every expectation on UI
-   reactiveness, frame rate / FPS, frame pacing, input-to-photon latency,
-   network/IPC latency, throughput, RAM/CPU/GPU/disk footprint, startup time,
-   or build/test/CI duration — stated as concrete numbers (`MEASURED` with
-   receipt/command vs `ASSUMED`), never vague adjectives like "fast" or
-   "smooth".
-4. **Infeasibility and workaround requirements:** Anything treated as
-   infeasible, unsupported, or "designed around", along with the workaround it
-   caused. Tag unproven claims `UNVERIFIED_INFEASIBILITY`.
-5. **Risk-driven requirements:** Every risk that introduced defensive code,
-   indirection, fallbacks, abstractions, or extra process steps, stating the
-   footprint it adds.
-6. **Parallelism and dependency requirements:** Which tasks, builds, checks, or
-   runtime stages are claimed serial vs parallel, naming the exact claimed
-   reason for every serial edge (`A -> B`).
+- `id`: global, stable (`R1`, `R2`, …; revisions may carry primes such as
+  `R18'` if tracking edits).
+- `story`: **the headline — one line, about 12 words or fewer**, describing
+  what someone experiences (a user, an agent using the product, or an agent
+  building/operating it). Technical detail goes in `text`, never in `story`.
+- `text`: the technical statement.
+- `backing`: concrete evidence (measured receipt, doc/code pointer, LOC
+  footprint, spike result, or `USER`).
+- `states`: referenced state or component IDs from the diagram (or `—`).
+- `category`: short tag (`intent`, `arch`, `perf`, `security`, `ops`, etc.).
+- `status`: **exactly one of four statuses** (precedence `needs-you` >
+  `user-specified` > `validated` > `unconfirmed`):
+  - `needs-you`: a decision only the engineer can make, including any place
+    where evidence overrode an engineer decision.
+  - `user-specified`: stated by the engineer (records source, **not**
+    evidence). **Never let `user-specified` hide risk:** if a user-specified
+    requirement depends on an untested technical part, split that untested part
+    into its own `unconfirmed` requirement.
+  - `validated`: measured, spiked, or confirmed by docs or source.
+  - `unconfirmed`: assumed, unmeasured, or untested (including
+    `UNVERIFIED_INFEASIBILITY` claims).
+- `kind`: **exactly one of two kinds**:
+  - `assumption`: informs design and is not work (intent, constraints,
+    budgets, infeasibility claims, invariants). **Must carry no `scope`.**
+  - `implementation`: something you actually build. **Must carry full `scope`**
+    when proposing new work (no standalone scope or parallelism requirements!).
+- `scope` (`implementation` requirements only): invoke **`scope-work`** to
+  populate `first_pass_min`, `depends_on`, `breakdown` (`edit`, `build_test`,
+  `verify` with `min` + `why`), `basis`, and `risk`, plus top-level
+  `scope_model` (`rates`, `failure_multiplier`, `reference`, `confidence`,
+  `human_gates`). Totals and the critical path are **derived by the renderer**.
+- Optional: `short` (compact label for the chat attention summary) and `change`
+  (`added` | `changed` | `deleted` for round-delta filtering).
 
-## Step 3: Scoped work requirements (new work only)
+*Note on existing code:* When analyzing an already-implemented feature or
+section of the codebase (no new work proposed), requirements are `assumption`
+rows describing what the code enforces today (no `scope` required).
 
-**Only when proposing new work (such as a plan)** — not when analyzing an
-already-implemented feature or section of the codebase — invoke **`scope-work`**
-and record its empirically derived task breakdown, first-pass clock time,
-failure-adjusted clock time, and explicit derivations as requirements (`R#`) in
-the register above.
+## Step 3: Validate and render the inline view
+
+Run the bundled renderer and validator:
+
+```sh
+python3 PATH_TO_THIS_SKILL/scripts/render_register.py register.json \
+  --out /tmp/register.html [--arch arch.json] [--max-height 720]
+
+# Print the concise plain-text attention summary for chat
+python3 PATH_TO_THIS_SKILL/scripts/render_register.py register.json --summary
+```
+
+The validator refuses missing stories, unknown statuses/kinds/changes,
+duplicate IDs, missing or non-summing implementation scopes, scope on
+assumptions, non-implementation `depends_on`, dependency cycles, and (with
+`--arch`) section IDs not matching architecture component IDs.
+
+## Display rule
+
+- If the host can display HTML inline, show the rendered HTML register inline;
+  otherwise save the file and link it.
+- In chat, **always** accompany the view with the short plain-text attention
+  summary (`--summary`): `Needs you` items plus any `unconfirmed` items on the
+  critical path.
