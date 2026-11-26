@@ -1,13 +1,14 @@
 ---
 name: question-requirements
-description: Spawn a fresh subagent to challenge every stated requirement (R1, R2, ...), perform deep web research for open-source or existing tools that replace custom code, run minimal empirical spikes in isolated directories or worktrees on claimed infeasibilities and performance ceilings, and challenge parallelism and scoped estimates.
+description: "Spawn a fresh subagent to challenge either the premise or the scoped work of any requirement (R1, R2, ...), including user-specified decisions. Performs deep web research for open-source replacements, runs minimal empirical spikes in isolated directories or worktrees, and challenges phase breakdowns, rates, and depends_on edges."
 ---
 
 # Question requirements
 
-Challenge every stated requirement (`R1`, `R2`, …) with empirical evidence
-instead of opinion. Works on **any** requirements set — a plan, an implemented
-feature or section of the codebase, a status report, or a workflow.
+Challenge **either the premise/content of any requirement, or the scoped work of
+any requirement** (`R1`, `R2`, …) with empirical evidence instead of opinion.
+Works on **any** requirements register — a plan, an implemented feature or
+section of the codebase, a status report, or a workflow.
 
 **Primary goal:** Minimize the total amount of code and process the project
 must implement and maintain while preserving engineer intent.
@@ -20,9 +21,10 @@ not question requirements inside the same context that authored them.
 
 Pass the fresh subagent **only**:
 
-1. The stated requirements set (`R1`, `R2`, …) and any accompanying diagram or
-   target reference (plan text, repository path + commit/diff + `git log -p`
-   access, status report, or workflow report).
+1. The requirements register JSON (`R1`, `R2`, … grouped by component section)
+   and any accompanying diagrams or target reference (plan text, repository
+   path + commit/diff + `git log -p` access, status report, or workflow
+   report).
 2. This skill (`question-requirements`) and `benchmark-checklist` (when
    installed).
 
@@ -40,97 +42,86 @@ Pass the fresh subagent **only**:
 
 ## What the fresh subagent must interrogate
 
-Walk every `R#` systematically:
+Walk every `R#` systematically across both **premise** and **scope**:
 
-### 1. Deep web research for open-source and existing tools
+### 1. Question the premise of any requirement (no exemptions)
 
-For every requirement that implies custom code, a bespoke library, protocol,
-script, service, or workflow:
+- **No requirement is exempt — including `user-specified` ones:** Question
+  user-explicit decisions whenever evidence shows a better or simpler path or
+  shows the decision does not apply. Keep the **product outcomes** the engineer
+  stated; challenge the **means**.
+- **Overriding an engineer decision:** When empirical evidence overrides a
+  `user-specified` decision, nominate the replacement, set the proposed status
+  to **`needs-you`**, and explicitly write **`overrides your decision`** with
+  the evidence so the engineer can review or veto it.
+- **Deep web research for open-source and existing tools:** For every
+  requirement implying custom code, a bespoke library, protocol, script,
+  service, or workflow:
+  1. State the underlying need in one plain sentence without naming the
+     proposed custom solution.
+  2. Audit what is already in the project's stack (current docs, installed
+     versions, license tiers — never memory).
+  3. Run deep web research across problem-domain terms, GitHub repositories
+     (READMEs, architecture, recency, issues, actual source files), package
+     registries (`crates.io`, `npm`, `PyPI`, system packages, platform SDKs),
+     engineering blogs, RFCs, and hosted services. Prefer choices that minimize
+     long-term maintenance and unlock future features — even if adopting
+     requires reshaping the design to fit the tool.
+  4. Record queries run, candidate URLs, adoption path (as-is, configured, or
+     small glue), license, and maintenance delta. If glue grows beyond a small
+     script, search again.
+  5. **Keeping custom code requires empirical disproof:** For every ruled-out
+     candidate, name the exact surviving requirement it fails and prove it with
+     a link, file/line, or minimal spike. *"It does not fit our current
+     design"* is not evidence. Custom work without this research record is a
+     review blocker.
+- **Delete every part that does not earn its keep:** Challenge "in case"
+  hedges, abstractions, fallbacks, config knobs, and our own conventions that
+  force custom code. Apply the 10% test: if you did not find requirements worth
+  deleting, you have not questioned hard enough.
+- **Empirically spike infeasibilities, risks, and performance metrics:**
+  - Never accept `UNVERIFIED_INFEASIBILITY`, "unsupported", or "too risky" at
+    face value — run the smallest targeted spike to produce
+    `CONFIRMED_INFEASIBLE`, `DISPROVED`, or `BLOCKED`.
+  - For performance, timing, or resource requirements, ask whether we can do
+    better (higher FPS, lower RAM/latency, faster builds/CI) and vet spike
+    numbers with **`benchmark-checklist`** when installed.
+  - Flag any `user-specified` requirement that hides an untested technical
+    assumption and nominate splitting the untested part into its own
+    `unconfirmed` requirement.
 
-1. **State the underlying need** in one plain sentence without naming the
-   proposed custom solution.
-2. **Audit what is already in the project's stack:** Read current docs,
-   installed versions, and license tiers of tools/services already in use
-   (never rely on memory).
-3. **Run deep web research** to find open-source projects, libraries, CLI tools,
-   or hosted services that eliminate custom implementation:
-   - Search multiple angles (problem domain terms, protocol/standard names,
-     language ecosystem idioms — not just internal project jargon).
-   - Inspect **GitHub repositories** directly (READMEs, architecture,
-     stars/recency, issues, maintenance status, and actual source files when
-     checking a claimed limitation).
-   - Search **package registries and ecosystems** (`crates.io`, `npm`, `PyPI`,
-     system package managers, platform SDKs) as well as engineering blogs,
-     RFCs, and benchmark writeups.
-   - Prefer solutions that minimize long-term maintenance and unlock future
-     features around the corner — even if adopting requires short-term
-     integration effort or reshaping the design to fit the tool.
-4. **Record every candidate** with exact queries run, URLs, adoption path
-   (as-is, configured, or small glue), license, and maintenance delta. If glue
-   grows beyond a small script, search again.
-5. **Keeping custom code requires empirical disproof:** Adopting needs no
-   defense; keeping custom code does. For every ruled-out candidate, name the
-   exact surviving requirement it fails and prove it with a link, file/line, or
-   minimal spike. *"It does not fit our current design"* is not evidence.
-   Custom implementation without this research record is a review blocker.
+### 2. Question the scope of any implementation requirement
 
-### 2. Nominate requirements and parts for deletion
+For every `implementation` requirement (as part of questioning that
+requirement, never as a separate scope table):
 
-For every `R#`:
-
-- Who or what actually requires it — true engineer intent, or an "in case"
-  hedge?
-- What concretely breaks if we delete this requirement, component, abstraction,
-  config knob, fallback, or check outright?
-- Does one of our own repo conventions or rules force custom work? If so,
-  nominate that rule itself for deletion or narrowing.
-- Apply the 10% test: if you did not find requirements worth deleting, you have
-  not questioned hard enough.
-
-### 3. Empirically spike stated infeasibilities and risks
-
-For every requirement tagged `UNVERIFIED_INFEASIBILITY` or driven by a major
-risk:
-
-- Do **not** take "infeasible", "unsupported", or "too risky" at face value.
-- Run the smallest possible targeted spike (in `/tmp/...` or a disposable git
-  worktree of the real project) to confirm whether the limitation is real.
-- Record verdict: `CONFIRMED_INFEASIBLE`, `DISPROVED` (with working spike
-  command and output), or `BLOCKED` (naming the exact missing prerequisite or
-  hardware).
-
-### 4. Challenge every performance, timing, and resource requirement
-
-For every metric-backed or metric-assuming `R#` (FPS, latency, RAM, throughput,
-compile/test/CI duration, etc.):
-
-- Ask whether the metric is actually as good as it can be (higher FPS, lower
-  RAM/latency, smaller footprint, faster warm build or CI).
-- Run minimal profiling or performance spikes and vet every measurement with
-  **`benchmark-checklist`** when installed (limiter, production tuning,
-  arithmetic limits, error count, work happened, end-to-end share).
-
-### 5. Challenge parallelism and scoped estimates
-
-- **Parallelism:** For every serial edge (`A -> B`), prove whether it is a true
-  data/state dependency or accidental serialization (shared dir, sequential
-  script, over-broad lock, serial checks/steps) and propose concrete parallel
-  splits.
-- **Scoped estimates:** Inspect the historical reference tasks and formulas
-  backing every time estimate — challenge both what can be cut from scope and
-  whether a faster delivery or verification path exists.
+- Challenge **`scope.first_pass_min`** and the arithmetic in each phase's
+  **`breakdown` (`edit`, `build_test`, `verify`)**: are the LOC counts, cycle
+  counts, and `why` justifications grounded in reality?
+- Challenge the shared **`scope_model.rates`** and **`failure_multiplier`**:
+  are assumed rates too optimistic or inflated, and can a quick spike calibrate
+  them?
+- Challenge every **`scope.depends_on`** edge: is it a true data/contract
+  dependency or accidental serialization that can run in parallel?
+- Challenge whether simplifying or adopting OSS shrinks or removes the work
+  altogether.
 
 ## Output format
 
-Return a compact, evidence-backed dossier referencing exact `R#` IDs — do not
-split requirements into separate category sections:
+Return a compact, evidence-backed dossier referencing **`R#` + component
+section** — do not split requirements into separate category sections. Every
+finding must state whether it challenges **`premise`** or **`scope`**, the
+evidence, and the proposed new value (or deletion):
 
-1. **Summary:** Overall verdict, estimated code/process footprint removable,
-   and top invalidated assumptions.
-2. **Requirements you can delete:** Each `R#` nominated for deletion,
-   replacement by an adopted open-source tool, simplification, parallelization,
-   or scope reduction, with its concrete evidence (search queries & candidate
-   URLs, minimal spike command & measured output, or impact if removed).
-3. **Requirements you validated:** Each `R#` that withstood interrogation, with
-   the empirical evidence or disproof showing why it stays (including any vetted
-   performance headroom found on surviving requirements).
+1. **Summary:** Overall verdict, estimated code/process footprint or time
+   removable, and top invalidated assumptions.
+2. **Requirements you can delete or change:** Each `R#` (`section`) with
+   `premise` or `scope` tag, concrete evidence (search queries & candidate
+   URLs, minimal spike command & measured output, arithmetic/dependency proof,
+   or impact if removed), and the exact proposed deletion, replacement,
+   status (`needs-you` + `"overrides your decision"` when overriding the
+   engineer), or new `scope` values / `depends_on` edges.
+3. **Requirements you validated:** Each `R#` (`section`) that withstood
+   interrogation (both premise and scope), with the empirical evidence or
+   disproof showing why it stays (including any vetted performance headroom
+   found on surviving requirements).
