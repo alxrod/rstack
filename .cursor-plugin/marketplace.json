@@ -1,0 +1,34 @@
+{
+  "name": "rstack",
+  "owner": {
+    "name": "Alex Rodriguez",
+    "url": "https://github.com/alxrod"
+  },
+  "metadata": {
+    "description": "Requirements-first agent engineering stack: state, question, and delete requirements across plans, code, status reports, and dev cycles.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "rstack",
+      "source": "./plugins/rstack",
+      "version": "0.1.0",
+      "description": "Requirements-first engineering meta-skills and always-applied rules: state-machine-diagram, state-requirements, question-requirements (fresh subagent), delete-requirements, auto-plan, measure-dev-cycle, scope-work, and status-report.",
+      "author": {
+        "name": "Alex Rodriguez",
+        "url": "https://github.com/alxrod"
+      },
+      "homepage": "https://github.com/alxrod/rstack",
+      "license": "MIT",
+      "tags": [
+        "requirements",
+        "planning",
+        "architecture",
+        "state-machine",
+        "dev-cycle",
+        "scoping",
+        "workflow"
+      ]
+    }
+  ]
+}

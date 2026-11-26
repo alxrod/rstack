@@ -1,0 +1,33 @@
+---
+description: High-priority warm build discipline and run-every-check-to-end hygiene.
+alwaysApply: true
+---
+
+# Build and check hygiene
+
+## Warm builds (high-priority standing policy)
+
+Assume every build will fail at least once and will be run again. Plan each
+build (app, service, image, package, firmware, container) so repeating it costs
+minutes, not a full cold rebuild.
+
+- **State where warm state lives before building:** Before starting or
+  proposing any multi-minute build, state what persists between runs (unpacked
+  sources, build dir, compiler/download caches), where it lives, and the
+  expected repeat cost. Build cold only when unavoidable and agreed.
+- **Preserve build outputs across downstream failures:** Separate build from
+  packaging, signing, publishing, and install so downstream failures retry from
+  verified build output rather than rebuilding.
+- **Fail fast and report everything:** Run cheap checks before expensive ones
+  and replay rule/script changes against fixtures before paying for a full
+  build.
+- **Measure builds:** Record phase durations, build steps executed, and cache
+  hits, and report whether each build was warm or cold.
+
+## Run every check to the end
+
+Test builds and CI runs are expensive, so one run must surface every problem
+together instead of stopping at the first failure. Use keep-going flags
+(`cargo test --no-fail-fast`, `fail-fast: false` in CI matrices, and check
+scripts that collect all failures before exiting non-zero). Stop early only
+when a later step is meaningless or unsafe, and report what was skipped.

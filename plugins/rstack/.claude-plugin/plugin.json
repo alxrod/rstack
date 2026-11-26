@@ -1,0 +1,32 @@
+{
+  "name": "rstack",
+  "version": "0.1.0",
+  "description": "Requirements-first agent engineering stack: state, question, and delete requirements across plans, code, status reports, and dev cycles.",
+  "author": {
+    "name": "Alex Rodriguez",
+    "url": "https://github.com/alxrod"
+  },
+  "homepage": "https://github.com/alxrod/rstack",
+  "repository": "https://github.com/alxrod/rstack",
+  "license": "MIT",
+  "keywords": [
+    "rstack",
+    "requirements",
+    "planning",
+    "architecture",
+    "state-machine",
+    "dev-cycle",
+    "scoping",
+    "workflow"
+  ],
+  "skills": [
+    "./skills/state-machine-diagram",
+    "./skills/state-requirements",
+    "./skills/question-requirements",
+    "./skills/delete-requirements",
+    "./skills/auto-plan",
+    "./skills/measure-dev-cycle",
+    "./skills/scope-work",
+    "./skills/status-report"
+  ]
+}

@@ -1,0 +1,56 @@
+---
+description: Requirements-first engineering model and code/data as source of truth.
+alwaysApply: true
+---
+
+# Requirements-first architecture
+
+A **requirement** is anything that motivates a decision across any repository
+(product code, infrastructure, build tooling, tests, and protocols alike): user
+intent, architecture and owned code footprint, assumptions, performance or
+timing metrics, stated infeasibilities, risks, parallelism or dependency
+constraints, and scoped work estimates.
+
+Everything an agent works on — a plan, an implemented feature or section of the
+codebase, a workflow/dev cycle, or a status report — should be expressible as a
+unified set of requirements (`R1`, `R2`, …) that can be stated, questioned, and
+deleted to minimize owned code and process while preserving engineer intent.
+
+- **Unconstrained initial plans:** Keep initial planning raw and unconstrained
+  so the agent can explore unfamiliar areas freely (including a
+  `state-machine-diagram` reflecting performance and timing metrics).
+- **State (`state-requirements`):** Expose every requirement (`R1`, `R2`, …)
+  with its backing explanation, assumptions, metrics (`MEASURED` vs `ASSUMED`),
+  code footprint, stated infeasibilities, risks, dependencies, and (for new
+  work) empirically derived `scope-work` estimates.
+- **Question (`question-requirements`):** Always run in a **fresh subagent**
+  with zero prior context. Keep the target untouched while running minimal
+  targeted spikes in disposable directories or worktrees, perform deep web
+  research for open-source replacements, and challenge every requirement,
+  metric, parallelism edge, and scope estimate. Keeping custom code requires
+  empirical disproof of alternatives (links, files/lines, or minimal spikes);
+  reshaping a design to fit an adopted tool beats owning custom code.
+- **Delete (`delete-requirements`):** Delete unnecessary requirements, custom
+  code, and process steps first; adopt proven open-source tools and keep glue
+  thin; optimize surviving parts; and prove intent and non-regression using the
+  repository's verification workflow or tests. Never start or merge custom
+  implementation whose requirements have not been questioned and pruned.
+- **Interactive default vs autonomous loop:** Standard interactive work lets
+  the engineer choose which skill to run next. Explicitly invoke opt-in
+  `auto-plan` when you want the autonomous plan → state → question → delete
+  loop (stopping after two unchanged rounds) followed by implementation.
+
+## Code and data as source of truth
+
+Prioritize expressing surviving requirements, assumptions, invariants, and
+performance metrics deterministically in code (types, state enums/machines,
+runtime assertions, tests, schemas) or structured data (JSON/JSONL receipts,
+metric baselines) rather than parallel prose Markdown documents or explanatory
+comments that drift out of date.
+
+- A reader inspecting code should be able to understand its surviving
+  requirements without reading a separate prose spec.
+- Read the code and `git log -p` / `git diff` to understand design decisions
+  made over time rather than trusting older Markdown summaries.
+- Delete stale prose and comments invalidated by changes instead of maintaining
+  them alongside the code.
