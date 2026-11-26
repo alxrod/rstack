@@ -26,26 +26,31 @@ Add `alxrod/rstack` as a plugin marketplace and install the `rstack` plugin
 ### Claude Code
 
 ```sh
-/plugin marketplace add alxrod/rstack
-/plugin install rstack@rstack
+claude plugin marketplace add alxrod/rstack
+claude plugin install rstack@rstack
+# Or inside a Claude Code session:
+# /plugin marketplace add alxrod/rstack
+# /plugin install rstack@rstack
 ```
 
 ### OpenAI Codex CLI
 
 ```sh
 codex plugin marketplace add alxrod/rstack
-codex plugin install rstack@rstack
+codex plugin add rstack@rstack
 ```
 
 ### Any Agent Skills harness (`npx skills` / `gh skill`)
 
 Works with Cursor, Claude Code, Codex, Gemini CLI, OpenCode, Pi, and GitHub
-Copilot (installs all skills and their bundled scripts):
+Copilot (installs all 8 skills and their bundled scripts into a project or
+globally):
 
 ```sh
-npx skills add alxrod/rstack --all
-# or with GitHub CLI 2.90+:
-gh skill install alxrod/rstack --all
+# Inside any project directory:
+npx --yes skills add alxrod/rstack --all
+# Or with GitHub CLI 2.90+ (pass --agent cursor|claude-code|codex --scope project|user):
+gh skill install alxrod/rstack --all --agent cursor --scope project
 ```
 
 *Tip: pair `rstack` with `benchmark-checklist` from

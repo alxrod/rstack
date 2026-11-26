@@ -1,6 +1,6 @@
 ---
 name: auto-plan
-description: Opt-in autonomous planning and implementation loop. Only run when explicitly triggered by the engineer: creates an unconstrained plan, then loops through state-requirements, question-requirements (fresh subagent), and delete-requirements until two consecutive rounds make no requirement changes, then implements and verifies the plan.
+description: "Opt-in autonomous planning and implementation loop. Only run when explicitly triggered by the engineer: creates an unconstrained plan, then loops through state-requirements, question-requirements (fresh subagent), and delete-requirements until two consecutive rounds make no requirement changes, then implements and verifies the plan."
 ---
 
 # Auto plan

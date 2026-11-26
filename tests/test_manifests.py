@@ -76,6 +76,14 @@ class ManifestAndDagTests(unittest.TestCase):
         for name in sorted(EXPECTED_SKILLS):
             body = (SKILLS_DIR / name / 'SKILL.md').read_text(encoding='utf-8')
             self.assertTrue(body.startswith(f'---\nname: {name}\ndescription:'), name)
+            desc_line = body.splitlines()[2]
+            desc_val = desc_line.split('description:', 1)[1].strip()
+            if ': ' in desc_val:
+                self.assertTrue(
+                    (desc_val.startswith('"') and desc_val.endswith('"'))
+                    or (desc_val.startswith("'") and desc_val.endswith("'")),
+                    f'{name}: description with ": " must be YAML-quoted',
+                )
             for forbidden in FORBIDDEN_CALLER_REFS.get(name, ()):
                 self.assertNotIn(forbidden, body, f'child skill {name} must not reference caller/sibling {forbidden}')
 
