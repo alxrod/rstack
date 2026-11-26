@@ -9,7 +9,7 @@ PLUGIN_DIR = ROOT / 'plugins/rstack'
 SKILLS_DIR = PLUGIN_DIR / 'skills'
 
 EXPECTED_SKILLS = {
-    'state-machine-diagram',
+    'system-diagram',
     'state-requirements',
     'question-requirements',
     'delete-requirements',
@@ -21,7 +21,7 @@ EXPECTED_SKILLS = {
 
 # Strict hierarchical DAG: child skills must stay agnostic to their callers.
 FORBIDDEN_CALLER_REFS = {
-    'state-machine-diagram': ('state-requirements', 'question-requirements', 'delete-requirements', 'auto-plan'),
+    'system-diagram': ('state-requirements', 'question-requirements', 'delete-requirements', 'auto-plan'),
     'measure-dev-cycle': ('scope-work', 'state-requirements', 'question-requirements', 'delete-requirements', 'auto-plan', 'status-report'),
     'scope-work': ('state-requirements', 'question-requirements', 'delete-requirements', 'auto-plan', 'status-report'),
     'state-requirements': ('question-requirements', 'delete-requirements', 'auto-plan'),

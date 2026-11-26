@@ -1,6 +1,6 @@
 ---
 name: status-report
-description: Reconcile an active plan or goal with what landed, what is implemented and awaiting merge, blockers requiring human action, and remaining tasks. Uses scope-work for empirical clock-time estimates and presents active scope, blockers, assumptions, and estimates in requirements format.
+description: Reconcile an active plan or goal with what landed, what is implemented and awaiting merge, blockers requiring human action, and remaining tasks. Uses scope-work for empirical clock-time estimates and groups active requirements by the plan's component sections.
 ---
 
 # Status report
@@ -28,31 +28,31 @@ description: Reconcile an active plan or goal with what landed, what is implemen
 
 ## Size remaining work using `scope-work`
 
-Always invoke **`scope-work`** to size remaining work and derive clock times.
-Do not invent ad-hoc estimates or bypass `scope-work`:
+Always invoke **`scope-work`** to size remaining `implementation` requirements
+and derive clock times. Do not invent ad-hoc estimates or bypass `scope-work`:
 
-1. Feed every unstarted task, remaining portion of in-progress work, and newly
-   discovered work into `scope-work`. When new work is found, add it to the
-   plan and percentage in the same report and name what was added.
-2. Follow `scope-work`'s 10–60 minute piece sizing (splitting items above 2
-   hours, writing `not sized yet` when source/plan has not been read) and
-   dependency graph so parallel lanes are never double-counted in clock time.
+1. Feed every unstarted requirement, remaining portion of in-progress work, and
+   newly discovered work into `scope-work`. When new work is found, add it to
+   the plan and percentage in the same report and name what was added.
+2. Follow `scope-work`'s phase-by-phase breakdown (`edit`, `build_test`,
+   `verify` with `min` + `why` from shared `scope_model.rates`) and
+   `depends_on` graph so parallel lanes are never double-counted in clock time.
 3. **Pass through `scope-work`'s full derivations verbatim into the report:**
-   include both clock-time numbers (first-pass and failure-adjusted), the exact
-   historical reference tasks/PRs, phase breakdown, failure rate, retry penalty,
-   confidence level, and assumptions for every item and the critical path.
-4. Keep waits on a person out of both clock-time numbers and list them under
-   **Human action needed**.
+   include both clock-time numbers (first-pass and failure-adjusted), the
+   critical-path ID chain, historical reference class, failure multiplier,
+   confidence level, and key risks.
+4. Keep waits on a person (`human_gates`) out of both clock-time numbers and
+   list them under **Human action needed**.
 
-## Present in requirements format
+## Present in requirements format grouped by component sections
 
-Express the active plan's scope, dependencies, blockers, gates, assumptions,
-and scoped clock-time estimates as explicit, uniquely numbered **requirements**
-(`R1`, `R2`, …) with their backing evidence or `scope-work` derivations — so
-every assumption, dependency, blocker, or estimate in the status report can be
-inspected, challenged, or deleted directly without rewriting the report.
+Group active requirements, blockers, gates, assumptions, and remaining
+implementation work under the **same architecture component sections** used by
+the plan's requirements register (using stable global IDs `R1`, `R2`, … and the
+four statuses `needs-you`, `user-specified`, `validated`, `unconfirmed`) so
+every item can be inspected, questioned, or updated directly in the register.
 
-| ID | Category | Requirement / current assumption | Backing evidence or `scope-work` derivation | Status |
+| ID | Section | Story / requirement | Status | Backing evidence or `scope-work` derivation |
 | --- | --- | --- | --- | --- |
 
 ## Write the report
@@ -66,21 +66,22 @@ Then include:
 
 ### Landed
 
-Verified work by task and repository with merged PR or target-branch commit links.
+Verified work by section/requirement (`R#`) and repository with merged PR or
+target-branch commit links.
 
 ### Implemented and awaiting merge
 
-Each PR or local branch with repository, current state, specific blocker or next
-gate (referencing its `R#` ID), and next action.
+Each PR or local branch with repository, current state, specific blocker or
+next gate (referencing its `R#` ID and section), and next action.
 
 ### Human action needed
 
 Decisions, approvals, access, or hardware a person must provide (referencing
-their `R#` IDs), naming who owns each action and what it unlocks. Say "None
-identified" when none exist.
+their `R#` IDs and sections), naming who owns each action and what it unlocks.
+Say "None identified" when none exist.
 
 ### Remaining work
 
-Outstanding tasks broken into `scope-work`'s 10–60 minute pieces (referencing
-`R#` IDs), carrying through each group's two clock-time numbers, historical
-derivation, dependencies, and material unknowns.
+Outstanding `implementation` requirements grouped by component section
+(referencing `R#` IDs), carrying through first-pass and failure-adjusted clock
+times, phase breakdown / rate basis, `depends_on` edges, and material risks.

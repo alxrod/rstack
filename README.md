@@ -68,7 +68,7 @@ flowchart TD
   AP --> QR[question-requirements<br/>fresh subagent]
   AP --> DR[delete-requirements]
 
-  SR --> SMD[state-machine-diagram]
+  SR --> SD[system-diagram<br/>architecture + flow]
   SR --> SW[scope-work<br/>new work only]
   STR[status-report<br/>requirements format] --> SW
   SW --> MDC[measure-dev-cycle]
@@ -79,14 +79,14 @@ flowchart TD
 
 | Skill | Purpose |
 | --- | --- |
-| [`state-machine-diagram`](plugins/rstack/skills/state-machine-diagram/SKILL.md) | Express any plan, implemented feature, or workflow as a validated Mermaid `stateDiagram-v2` text + visual diagram reflecting performance/timing metrics, backed by [`state_diagram.py`](plugins/rstack/skills/state-machine-diagram/scripts/state_diagram.py) |
-| [`state-requirements`](plugins/rstack/skills/state-requirements/SKILL.md) | State all requirements (`R1`, `R2`, …) motivating a plan, an implemented feature or codebase section, or a workflow |
-| [`question-requirements`](plugins/rstack/skills/question-requirements/SKILL.md) | Fresh subagent: deep web research for OSS replacements, deletion audit, minimal targeted spikes in disposable directories/worktrees, and parallelism/scope challenges |
-| [`delete-requirements`](plugins/rstack/skills/delete-requirements/SKILL.md) | Delete unnecessary requirements/code/steps, adopt OSS, optimize surviving parts, encode surviving requirements in code/data, and verify |
-| [`auto-plan`](plugins/rstack/skills/auto-plan/SKILL.md) | Opt-in autonomous loop: plan → state → question → delete until two consecutive rounds make no requirement changes, then implement and verify |
+| [`system-diagram`](plugins/rstack/skills/system-diagram/SKILL.md) | Generate and validate architecture (`flowchart` with boundaries, protocols, edge metrics) and flow (`stateDiagram-v2`) diagrams, backed by [`system_diagram.py`](plugins/rstack/skills/system-diagram/scripts/system_diagram.py) |
+| [`state-requirements`](plugins/rstack/skills/state-requirements/SKILL.md) | Author and validate a JSON requirements register (`assumption` vs `implementation`, 4 statuses, component sections) rendered into an interactive inline HTML view via [`render_register.py`](plugins/rstack/skills/state-requirements/scripts/render_register.py) |
+| [`question-requirements`](plugins/rstack/skills/question-requirements/SKILL.md) | Fresh subagent: challenge the premise or scope of any requirement (including `user-specified` decisions), run deep web OSS research, and run minimal targeted spikes in disposable directories/worktrees |
+| [`delete-requirements`](plugins/rstack/skills/delete-requirements/SKILL.md) | Apply premise deletions, OSS replacements, and per-requirement scope/dependency edits directly to the register, optimize surviving parts, encode surviving requirements in code/data, and verify |
+| [`auto-plan`](plugins/rstack/skills/auto-plan/SKILL.md) | Opt-in autonomous loop: plan → state → question → delete with rendered round views and deltas until two consecutive rounds make no material requirement changes, then implement and verify |
 | [`measure-dev-cycle`](plugins/rstack/skills/measure-dev-cycle/SKILL.md) | Profile single-PR and aggregate dev cycles with standalone [`dev_cycle.py`](plugins/rstack/skills/measure-dev-cycle/scripts/dev_cycle.py) and render a single concise HTML **Phase Duration Breakdown** table highlighting long poles |
-| [`scope-work`](plugins/rstack/skills/scope-work/SKILL.md) | Derive empirical 10–60 minute work pieces and first-pass / failure-adjusted clock times from historical dev-cycle data |
-| [`status-report`](plugins/rstack/skills/status-report/SKILL.md) | Report plan progress in requirements format (`R#`) using `scope-work` derivations |
+| [`scope-work`](plugins/rstack/skills/scope-work/SKILL.md) | Size each `implementation` requirement directly with phase-by-phase (`edit`, `build_test`, `verify`) `min` + `why` arithmetic, `depends_on` edges, and shared empirical `scope_model.rates` |
+| [`status-report`](plugins/rstack/skills/status-report/SKILL.md) | Report plan progress grouped by architecture component sections using `scope-work` derivations |
 
 ## Included rules
 

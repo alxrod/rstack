@@ -13,7 +13,7 @@
       "name": "rstack",
       "source": "./plugins/rstack",
       "version": "0.1.0",
-      "description": "Requirements-first engineering meta-skills and always-applied rules: state-machine-diagram, state-requirements, question-requirements (fresh subagent), delete-requirements, auto-plan, measure-dev-cycle, scope-work, and status-report.",
+      "description": "Requirements-first engineering meta-skills and always-applied rules: system-diagram, state-requirements, question-requirements (fresh subagent), delete-requirements, auto-plan, measure-dev-cycle, scope-work, and status-report.",
       "author": {
         "name": "Alex Rodriguez",
         "url": "https://github.com/alxrod"

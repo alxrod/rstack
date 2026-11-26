@@ -20,7 +20,7 @@
     "workflow"
   ],
   "skills": [
-    "./skills/state-machine-diagram",
+    "./skills/system-diagram",
     "./skills/state-requirements",
     "./skills/question-requirements",
     "./skills/delete-requirements",

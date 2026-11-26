@@ -1,37 +1,53 @@
 ---
 name: delete-requirements
-description: Remove unnecessary questioned requirements, custom code, and process steps, adopt proven open-source replacements, implement empirically validated performance optimizations on surviving parts, encode surviving requirements in code and data, and prove engineer intent and non-regression.
+description: "Apply premise deletions, OSS replacements, and scope/dependency edits directly to the requirements register (never maintaining a separate scope table), implement empirically validated optimizations on surviving parts, encode surviving requirements in code and data, and prove engineer intent and non-regression."
 ---
 
 # Delete requirements
 
 Act on a questioned requirements dossier (`R1`, `R2`, …) to shrink footprint,
-simplify the design, optimize what remains, and prove nothing important broke.
-Works on a **plan**, an **implemented feature or section of the codebase**, or
-a **workflow**.
+simplify the design, tighten scope, optimize what remains, and prove nothing
+important broke. Works on a **plan**, an **implemented feature or section of
+the codebase**, or a **workflow**.
 
 Follow the strict order: **delete first, optimize second, prove everything.**
 Never optimize a component or workflow step that should be deleted.
 
-## 1. Delete unnecessary requirements, code, and process
+## 1. Apply premise and scope findings directly to the register
 
 For each challenged requirement (`R#`):
 
-- **Verify against engineer intent:** Confirm deleting the requirement,
-  component, abstraction, fallback, or process step does **not** violate
-  engineer intent or an unwaivable safety, security, or release gate.
+- **Verify against engineer intent:** Confirm deleting a requirement,
+  component, abstraction, fallback, or process step does **not** violate the
+  product outcomes the engineer wants or an unwaivable safety, security, or
+  release gate.
+- **When evidence overrides a `user-specified` decision:** Apply the
+  evidence-backed change, set `status` to **`needs-you`**, and state
+  **`overrides your decision`** with the evidence in `backing` (and `short`) so
+  the engineer can review or veto it immediately.
 - **Delete aggressively:**
-  - On a **plan:** Remove eliminated requirements and components, merge
-    unnecessary layers, replace custom parts with adopted OSS tools, split
-    serial edges into parallel workstreams, and invoke `scope-work` to update
-    the plan's clock-time estimates.
+  - On a **plan / JSON register:** Remove eliminated requirements and
+    components (or mark `change: "deleted"` for one round when producing a
+    round delta), replace custom parts with adopted OSS tools, split hidden
+    untested risks out of `user-specified` rows into their own `unconfirmed`
+    requirements, and update `story` / `text` / `backing` / `status`.
+  - **Apply scope findings directly on the requirement:** Edit that
+    implementation requirement's `scope` (`first_pass_min`, `breakdown` phases
+    and `why`, `depends_on`, `basis`, `risk`) and shared `scope_model.rates`
+    via **`scope-work`** when needed, then re-render the register so totals and
+    the critical path are **always re-derived automatically**. Never maintain a
+    separate scope table or standalone scope/parallelism requirements.
   - On an **implemented feature or section of the codebase:** Delete
     dead/redundant code, abstractions, custom reimplementations replaced by
     adopted OSS, and stale prose/comments. Keep glue thin.
   - On a **workflow or dev cycle:** Delete redundant checks, serial
     bottlenecks, cold-build paths, or unnecessary manual steps.
-- **Keep with evidence:** If a questioned requirement survives (deleting it
-  would break intent or an active gate), record the exact reason it stayed.
+- **Track round deltas when iterating:** Set `change` to `added`, `changed`, or
+  `deleted` on requirements modified in the current pass so the rendered view's
+  `Changed this round` filter highlights only what moved.
+- **Keep with evidence:** If a questioned requirement survives, update its
+  `status` (`validated` when proved) and record the exact evidence in
+  `backing`.
 
 ## 2. Optimize surviving parts (only after deletion)
 
